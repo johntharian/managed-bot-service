@@ -1,0 +1,21 @@
+import uuid
+from sqlalchemy import Column, String, DateTime, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from app.models import Base
+
+class User(Base):
+    __tablename__ = "managed_bot_users"
+
+    user_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    phone_number = Column(String, unique=True, nullable=False)
+    bot_url = Column(String, nullable=False)
+    secret_key = Column(String, nullable=False)
+    preferred_llm = Column(String, server_default="claude", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    integrations = relationship("Integration", back_populates="user", cascade="all, delete-orphan")
+    permissions = relationship("BotPermission", back_populates="user", cascade="all, delete-orphan")
+    instructions = relationship("BotInstruction", back_populates="user", cascade="all, delete-orphan")
+    approvals = relationship("PendingApproval", back_populates="user", cascade="all, delete-orphan")
+    memories = relationship("UserMemory", back_populates="user", cascade="all, delete-orphan")

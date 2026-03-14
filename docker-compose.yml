@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  managed-bot-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: botsapp
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: managed_bot
+    ports:
+      - "5433:5432"
+    volumes:
+      - managed-bot-pgdata:/var/lib/postgresql/data
+
+  managed-bot-redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+
+volumes:
+  managed-bot-pgdata:
