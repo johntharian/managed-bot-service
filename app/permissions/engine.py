@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-import uuid
 from typing import Optional, Tuple
 
 from app.models.integration import Integration
@@ -15,18 +14,16 @@ class PermissionEngine:
         Determines the permission level for a given service and action.
         Returns: 'read_only', 'ask_first', 'full_auto', or 'denied'
         """
-        uid = uuid.UUID(user_id)
-        
         # 1. Fetch Integration
-        stmt = select(Integration).where(Integration.user_id == uid, Integration.service == service)
+        stmt = select(Integration).where(Integration.user_id == user_id, Integration.service == service)
         integ = (await self.db.execute(stmt)).scalar_one_or_none()
-        
+
         if not integ:
             return "denied" # Integration not connected
-            
+
         # 2. Fetch specific permission
         stmt_perm = select(BotPermission).where(
-            BotPermission.user_id == uid,
+            BotPermission.user_id == user_id,
             BotPermission.integration_id == integ.id,
             BotPermission.action == action
         )

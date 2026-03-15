@@ -9,23 +9,26 @@ from cryptography.hazmat.backends import default_backend
 import os
 from app.core.settings import settings
 
-def verify_hmac_signature(payload: bytes, signature_header: str, secret_key: str) -> bool:
+def verify_hub_signature(secret: str, payload: bytes, signature: str) -> bool:
     """
-    Verifies the HMAC-SHA256 signature from the BotsApp Webhook.
-    Expected signature_header format: `sha256=<hex>`
+    Verifies an X-Hub-Signature-256 header.
+    Expected signature format: ``sha256=<hex>``
     """
-    if not signature_header or not signature_header.startswith("sha256="):
+    if not signature or not signature.startswith("sha256="):
         return False
-    
-    expected_hex = signature_header.split("sha256=")[1]
-    
+
+    expected_hex = signature[len("sha256="):]
     computed = hmac.new(
-        key=secret_key.encode('utf-8'),
+        key=secret.encode("utf-8"),
         msg=payload,
-        digestmod=hashlib.sha256
+        digestmod=hashlib.sha256,
     ).hexdigest()
-    
     return hmac.compare_digest(computed, expected_hex)
+
+
+def verify_hmac_signature(payload: bytes, signature_header: str, secret_key: str) -> bool:
+    """Alias kept for backward compatibility — delegates to verify_hub_signature."""
+    return verify_hub_signature(secret_key, payload, signature_header)
 
 
 def encrypt_credentials(creds_dict: dict[str, Any]) -> str:

@@ -8,7 +8,7 @@ class PendingApproval(Base):
     __tablename__ = "pending_approvals"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("managed_bot_users.user_id"), nullable=False)
+    user_id = Column(String, ForeignKey("managed_bot_users.user_id"), nullable=False)
     action_desc = Column(String, nullable=False)
     payload = Column(JSONB, nullable=False)
     status = Column(String, server_default="pending") # 'pending', 'approved', 'rejected'

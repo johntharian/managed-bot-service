@@ -1,13 +1,11 @@
-import uuid
 from sqlalchemy import Column, String, DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.models import Base
 
 class User(Base):
     __tablename__ = "managed_bot_users"
 
-    user_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, primary_key=True)
     phone_number = Column(String, unique=True, nullable=False)
     bot_url = Column(String, nullable=False)
     secret_key = Column(String, nullable=False)

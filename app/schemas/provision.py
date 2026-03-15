@@ -1,8 +1,7 @@
 from pydantic import BaseModel
-import uuid
 
 class ProvisionRequest(BaseModel):
-    user_id: uuid.UUID
+    user_id: str
     phone_number: str
 
 class ProvisionResponse(BaseModel):

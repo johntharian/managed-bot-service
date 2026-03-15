@@ -1,35 +1,41 @@
 import httpx
-from typing import Dict, Any
+
 from app.core.settings import settings
+from app.core.logger import logger
+
 
 class BotsAppResponder:
     """
-    Responsible for posting messages BACK to the main BotsApp routing network.
+    Posts replies back to the BotsApp Go server, which routes them through
+    its RabbitMQ delivery pipeline.
     """
     def __init__(self):
-        self.api_url = settings.BOTSAPP_API_URL
+        self.server_url = settings.BOTSAPP_SERVER_URL
         self.service_token = settings.BOTSAPP_SERVICE_TOKEN
 
-    async def send_reply(self, from_user_id: str, to_phone: str, thread_id: str, text: str):
-        """
-        Posts standard envelope to Bot's App /messages
-        """
+    async def send_reply(self, sender_user_id: str, recipient_phone: str, content: str) -> None:
         payload = {
-            "from_user_id": from_user_id, # BotsApp handles bot auth differently, sending internal user_id in service mode
-            "to": to_phone,
-            "thread_id": thread_id,
-            "intent": "response",
-            "payload": {"text": text}
+            "sender_user_id": sender_user_id,
+            "to": recipient_phone,
+            "intent": "reply",
+            "payload": {"text": content},
         }
-        
-        headers = {
-            "Authorization": f"Bearer {self.service_token}"
-        }
-        
-        async with httpx.AsyncClient() as client:
+        headers = {"X-Service-Token": self.service_token}
+
+        logger.info("Sending reply to BotsApp", sender_user_id=sender_user_id, recipient=recipient_phone)
+        async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
-                f"{self.api_url}/messages",
+                f"{self.server_url}/messages",
                 json=payload,
-                headers=headers
+                headers=headers,
+            )
+
+        if not response.is_success:
+            logger.error(
+                "Failed to send reply to BotsApp",
+                status_code=response.status_code,
+                body=response.text,
             )
             response.raise_for_status()
+        
+        logger.info("Reply sent successfully", status_code=response.status_code)

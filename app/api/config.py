@@ -25,7 +25,7 @@ router = APIRouter()
 @router.post("/{user_id}/integrations/{service}/connect", response_model=IntegrationResponse)
 async def connect_integration(user_id: str, service: str, req: ConnectIntegrationRequest, db: AsyncSession = Depends(get_db)):
     integ = Integration(
-        user_id=uuid.UUID(user_id),
+        user_id=user_id,
         service=service,
         encrypted_creds=encrypt_credentials({"raw": req.encrypted_creds}),
         scopes=req.scopes
@@ -39,14 +39,14 @@ async def connect_integration(user_id: str, service: str, req: ConnectIntegratio
 # --- Instructions ---
 @router.get("/{user_id}/instructions")
 async def get_instructions(user_id: str, db: AsyncSession = Depends(get_db)):
-    stmt = select(BotInstruction).where(BotInstruction.user_id == uuid.UUID(user_id))
+    stmt = select(BotInstruction).where(BotInstruction.user_id == user_id)
     result = await db.execute(stmt)
     items = result.scalars().all()
     return [{"id": str(i.id), "instruction_text": i.instruction_text} for i in items]
 
 @router.put("/{user_id}/instructions")
 async def update_instruction(user_id: str, req: InstructionUpdate, db: AsyncSession = Depends(get_db)):
-    inst = BotInstruction(user_id=uuid.UUID(user_id), instruction_text=req.instruction_text)
+    inst = BotInstruction(user_id=user_id, instruction_text=req.instruction_text)
     db.add(inst)
     await db.commit()
     return {"status": "success"}
@@ -55,13 +55,13 @@ async def update_instruction(user_id: str, req: InstructionUpdate, db: AsyncSess
 # --- Approvals ---
 @router.get("/{user_id}/approvals")
 async def get_approvals(user_id: str, db: AsyncSession = Depends(get_db)):
-    stmt = select(PendingApproval).where(PendingApproval.user_id == uuid.UUID(user_id), PendingApproval.status == "pending")
+    stmt = select(PendingApproval).where(PendingApproval.user_id == user_id, PendingApproval.status == "pending")
     result = await db.execute(stmt)
     return result.scalars().all()
 
 @router.post("/{user_id}/approvals/{approval_id}/approve")
 async def approve_action(user_id: str, approval_id: str, db: AsyncSession = Depends(get_db)):
-    stmt = select(PendingApproval).where(PendingApproval.id == uuid.UUID(approval_id), PendingApproval.user_id == uuid.UUID(user_id))
+    stmt = select(PendingApproval).where(PendingApproval.id == uuid.UUID(approval_id), PendingApproval.user_id == user_id)
     approval = (await db.execute(stmt)).scalar_one_or_none()
     if not approval: raise HTTPException(404, "Not found")
     
@@ -74,14 +74,14 @@ async def approve_action(user_id: str, approval_id: str, db: AsyncSession = Depe
 # --- Long Term Memory ---
 @router.get("/{user_id}/memory", response_model=List[MemoryResponse])
 async def get_memory(user_id: str, db: AsyncSession = Depends(get_db)):
-    stmt = select(UserMemory).where(UserMemory.user_id == uuid.UUID(user_id))
+    stmt = select(UserMemory).where(UserMemory.user_id == user_id)
     memories = (await db.execute(stmt)).scalars().all()
     return [MemoryResponse(key=m.key, value=m.value, updated_at=m.updated_at.isoformat()) for m in memories]
 
 # --- Preferences ---
 @router.put("/{user_id}/preferences/llm")
 async def update_preferred_llm(user_id: str, pref: UserPreferenceUpdate, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, uuid.UUID(user_id))
+    user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         

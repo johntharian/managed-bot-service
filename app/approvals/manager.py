@@ -1,5 +1,4 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-import uuid
 from typing import Dict, Any
 
 from app.models.pending_approval import PendingApproval
@@ -13,7 +12,7 @@ class ApprovalManager:
         Creates a new pending approval and simulates push notification to BotsApp.
         """
         approval = PendingApproval(
-            user_id=uuid.UUID(user_id),
+            user_id=user_id,
             action_desc=action_desc,
             payload=payload,
             status="pending"

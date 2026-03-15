@@ -2,7 +2,6 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-import uuid
 
 from app.core.database import get_db
 from app.core.security import verify_hmac_signature
@@ -24,54 +23,52 @@ async def handle_bot_webhook(
 ):
     """
     Main webhook entrypoint for BotsApp.
-    Validates HMAC signature and hands off to the Context/Orchestrator.
+    Validates HMAC-SHA256 signature and hands off to the Context/Orchestrator.
     """
     # 1. Fetch user to get their secret key
-    stmt = select(User).where(User.user_id == uuid.UUID(user_id))
+    stmt = select(User).where(User.user_id == user_id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="Bot not found")
 
-    # 2. Verify signature
+    # 2. Verify X-Hub-Signature-256
     body = await request.body()
     if not verify_hmac_signature(body, x_hub_signature_256, user.secret_key):
         raise HTTPException(status_code=401, detail="Invalid HMAC signature")
 
-    # 3. Parse envelope
+    # 3. Parse message envelope (format sent by botsapp-server deliverer)
     try:
-        envelope_data = json.loads(body.decode("utf-8"))
-        envelope = MessageEnvelope(**envelope_data)
+        message = MessageEnvelope(**json.loads(body.decode("utf-8")))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-        
-    # Phase 4/5: Context generation and execution
+
+    # Extract text content from payload for context assembly
+    content = message.payload.get("text", json.dumps(message.payload))
+
+    # 4. Assemble context and run orchestrator
     assembler = ContextAssembler(db)
-    context = await assembler.assemble(user_id, envelope.thread_id, envelope_data)
-    
+    context = await assembler.assemble(user_id, message.thread_id, {"role": "user", "content": content})
+
     orchestrator = LLMOrchestrator(db)
-    result = await orchestrator.run(user_id, envelope.thread_id, context, preferred_llm=user.preferred_llm)
-    
+    result = await orchestrator.run(user_id, message.thread_id, context, preferred_llm=user.preferred_llm)
+
     responder = BotsAppResponder()
-    
+
     if result["action"] == "reply":
-        # Bot generated a text response, send it back
-        await responder.send_reply(user_id, envelope.from_, envelope.thread_id, result["text"])
-        
+        await responder.send_reply(user_id, message.from_, result["text"])
+
     elif result["action"] == "pending_approval":
-        # Action requires human-in-the-loop, ask for permission
         app_mgr = ApprovalManager(db)
         await app_mgr.create_pending_approval(
             user_id=user_id,
             action_desc=result["tool"],
             payload=result["args"]
         )
-        await responder.send_reply(user_id, envelope.from_, envelope.thread_id, result["text"])
-        
+        await responder.send_reply(user_id, message.from_, result["text"])
+
     elif result["action"] == "tool_executed":
-        # Action was executed on full_auto
-        # In a real setup, we might ask Claude to generate a follow up message, but for MVP:
-        await responder.send_reply(user_id, envelope.from_, envelope.thread_id, "Action executed successfully.")
-        
-    return {"status": "processed", "message_id": envelope.message_id}
+        await responder.send_reply(user_id, message.from_, "Action executed successfully.")
+
+    return {"status": "processed"}

@@ -10,12 +10,15 @@ class Settings(BaseSettings):
 
     # Integration Configuration
     BOTSAPP_SERVICE_TOKEN: str
-    BOTSAPP_API_URL: str
-    
+    BOTSAPP_SERVER_URL: str
+    BASE_URL: str
+
     # Internal Security
-    ENCRYPTION_KEY: str # 32 bytes AES
+    ENCRYPTION_KEY: str  # 32 bytes AES
     ANTHROPIC_API_KEY: str
     GEMINI_API_KEY: str
+
+    LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

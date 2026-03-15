@@ -8,7 +8,7 @@ class UserMemory(Base):
     __tablename__ = "user_memory"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("managed_bot_users.user_id"), nullable=False)
+    user_id = Column(String, ForeignKey("managed_bot_users.user_id"), nullable=False)
     key = Column(String, nullable=False)
     value = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

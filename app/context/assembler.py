@@ -1,8 +1,6 @@
 from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-import uuid
-
 from app.context.thread_fetcher import BotsAppThreadFetcher
 from app.context.working_memory import WorkingMemory
 from app.context.long_term_memory import LongTermMemory
@@ -26,7 +24,7 @@ class ContextAssembler:
         as well as explicit user bot instructions.
         """
         # 1. Main Bot instructions
-        stmt = select(BotInstruction.instruction_text).where(BotInstruction.user_id == uuid.UUID(user_id))
+        stmt = select(BotInstruction.instruction_text).where(BotInstruction.user_id == user_id)
         instructions = (await self.db.execute(stmt)).scalars().all()
         bot_instructions = "\n".join(instructions)
 
@@ -45,7 +43,7 @@ User instructions:
 """
 
         # 4. Recent Thread History (L1)
-        recent_thread_history = await self.thread_fetcher.fetch_recent_messages(thread_id)
+        recent_thread_history = await self.thread_fetcher.fetch_thread_history(thread_id, user_id)
 
         # 5. Working Memory (L2)
         working_memory_turns = await self.working_memory.get_state(user_id, thread_id)

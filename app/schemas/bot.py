@@ -1,12 +1,20 @@
 from pydantic import BaseModel
 from typing import Any
 
+
+class IncomingMessage(BaseModel):
+    sender_id: str
+    recipient_id: str
+    content: str
+    thread_id: str
+
+
 class MessageEnvelope(BaseModel):
     from_: str
     to: str
     intent: str
-    thread_id: str
-    message_id: str
+    thread_id: int
+    message_id: int
     timestamp: str
     payload: dict[str, Any]
 

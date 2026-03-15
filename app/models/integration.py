@@ -8,7 +8,7 @@ class Integration(Base):
     __tablename__ = "integrations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("managed_bot_users.user_id"), nullable=False)
+    user_id = Column(String, ForeignKey("managed_bot_users.user_id"), nullable=False)
     service = Column(String, nullable=False) # e.g., 'gmail', 'gcal'
     encrypted_creds = Column(String, nullable=False) # AES-256 encrypted JSON
     scopes = Column(ARRAY(String))
