@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.database import get_db
+from app.core.logger import logger
 from app.core.security import verify_hmac_signature
 from app.models.user import User
 from app.schemas.bot import MessageEnvelope
@@ -42,6 +43,7 @@ async def handle_bot_webhook(
     try:
         message = MessageEnvelope(**json.loads(body.decode("utf-8")))
     except Exception as e:
+        logger.error("Failed to parse message envelope", user_id=user_id, error=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
     # Extract text content from payload for context assembly

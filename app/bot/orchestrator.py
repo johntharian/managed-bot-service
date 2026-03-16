@@ -44,7 +44,7 @@ class LLMOrchestrator:
         self.permission_engine = PermissionEngine(db)
         self.working_memory = WorkingMemory()
 
-    async def run(self, user_id: str, thread_id: str, context: Dict[str, Any], preferred_llm: str = "claude") -> Dict[str, Any]:
+    async def run(self, user_id: str, thread_id: str, context: Dict[str, Any], preferred_llm: str = "gemini") -> Dict[str, Any]:
         """
         Takes the assembled context, calls the preferred LLM, and handles the resulting actions.
         """

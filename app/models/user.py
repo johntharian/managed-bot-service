@@ -9,7 +9,7 @@ class User(Base):
     phone_number = Column(String, unique=True, nullable=False)
     bot_url = Column(String, nullable=False)
     secret_key = Column(String, nullable=False)
-    preferred_llm = Column(String, server_default="claude", nullable=False)
+    preferred_llm = Column(String, server_default="gemini", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     integrations = relationship("Integration", back_populates="user", cascade="all, delete-orphan")

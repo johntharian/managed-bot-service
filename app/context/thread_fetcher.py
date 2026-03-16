@@ -22,8 +22,9 @@ class BotsAppThreadFetcher:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
-                logger.info("Fetched thread history successfully", thread_id=thread_id, message_count=len(response.json().get("messages", [])))
-                return response.json().get("messages", [])
+                messages = response.json()
+                logger.info("Fetched thread history successfully", thread_id=thread_id, message_count=len(messages))
+                return messages
         except Exception as e:
             logger.error("Failed to fetch thread history", thread_id=thread_id, user_id=user_id, error=str(e))
             return []
