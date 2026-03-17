@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.context.thread_fetcher import BotsAppThreadFetcher
+from app.context.thread_fetcher import AlterThreadFetcher
 from app.context.working_memory import WorkingMemory
 from app.context.long_term_memory import LongTermMemory
 from app.models.bot_instruction import BotInstruction
@@ -14,11 +14,18 @@ class ContextAssembler:
     """
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.thread_fetcher = BotsAppThreadFetcher()
+        self.thread_fetcher = AlterThreadFetcher()
         self.working_memory = WorkingMemory()
         self.long_term_memory = LongTermMemory(self.db)
 
-    async def assemble(self, user_id: str, thread_id: str, incoming_message: Dict[str, Any]) -> Dict[str, Any]:
+    async def assemble(
+        self,
+        user_id: str,
+        thread_id: str,
+        incoming_message: Dict[str, Any],
+        owner_mode: bool = False,
+        mentions: list = None,
+    ) -> Dict[str, Any]:
         """
         Gathers L1 (Recent thread window), L2 (Transient state), L3 (Long term memory),
         as well as explicit user bot instructions.
@@ -33,7 +40,28 @@ class ContextAssembler:
         long_term_memory_str = "\n".join([f"{k}: {v}" for k, v in user_memory.items()])
 
         # 3. System Prompt Synthesis
-        system_prompt = f"""You are the user's personal assistant bot on BotsApp.
+        if owner_mode:
+            mentions_context = ""
+            if mentions:
+                mentions_context = "\n\nMentioned contacts:\n" + "\n".join(
+                    f"- {m.get('display_name', '')} (phone: {m.get('phone', '')})"
+                    for m in mentions
+                )
+            system_prompt = f"""You are the user's personal AI assistant on Alter. The user (your owner) is giving you instructions directly.
+
+You can:
+- Answer questions about their messages, activity, and contacts
+- Send messages to their contacts using the send_message_to_contact tool
+- Execute other configured tools (Gmail, Calendar, etc.)
+
+Long-term user memory:
+{long_term_memory_str if long_term_memory_str else "No preferences learned yet."}
+
+User instructions:
+{bot_instructions if bot_instructions else "Assist the user appropriately."}
+{mentions_context}"""
+        else:
+            system_prompt = f"""You are the user's personal assistant bot on Alter.
 
 Long-term user memory:
 {long_term_memory_str if long_term_memory_str else "No preferences learned yet."}

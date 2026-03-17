@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 class ConnectIntegrationRequest(BaseModel):
-    encrypted_creds: str # E2E encrypted JSON blob passed from frontend/BotsApp
+    encrypted_creds: str # E2E encrypted JSON blob passed from frontend/Alter
     scopes: List[str]
 
 class IntegrationResponse(BaseModel):

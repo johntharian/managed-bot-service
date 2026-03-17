@@ -4,7 +4,7 @@ services:
   managed-bot-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: botsapp
+      POSTGRES_USER: alter
       POSTGRES_PASSWORD: password
       POSTGRES_DB: managed_bot
     ports:

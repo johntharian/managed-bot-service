@@ -14,7 +14,7 @@ def execute_approved_action(user_id: str, thread_id: str, tool_name: str, args: 
     """
     # 1. Re-hydrate the connector (Gmail/GCal)
     # 2. Execute the tool action with the args
-    # 3. Use Responder to push success back to BotsApp thread
+    # 3. Use Responder to push success back to Alter thread
     
     logger.info("Executing approved action", tool_name=tool_name, user_id=user_id)
     return {"status": "success", "tool": tool_name}

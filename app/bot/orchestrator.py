@@ -8,7 +8,7 @@ from app.permissions.engine import PermissionEngine
 from app.connectors.gmail import GmailConnector
 from app.connectors.gcal import GCalConnector
 from app.context.working_memory import WorkingMemory
-from app.bot.gemini_adapter import call_gemini, gemini_tools
+from app.bot.gemini_adapter import call_gemini, gemini_tools, gemini_owner_tools
 
 # In a real app, Anthropic AsyncClient should be instantiated once globally
 claude_client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
@@ -38,34 +38,53 @@ tools = [
     }
 ]
 
+send_message_tool = {
+    "name": "send_message_to_contact",
+    "description": "Send a message to one of the owner's contacts on their behalf via Alter.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "recipient_phone": {"type": "string", "description": "Phone number of the contact to message"},
+            "message_text": {"type": "string", "description": "The message text to send to the contact"}
+        },
+        "required": ["recipient_phone", "message_text"]
+    }
+}
+
+owner_tools = tools + [send_message_tool]
+
 class LLMOrchestrator:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.permission_engine = PermissionEngine(db)
         self.working_memory = WorkingMemory()
 
-    async def run(self, user_id: str, thread_id: str, context: Dict[str, Any], preferred_llm: str = "gemini") -> Dict[str, Any]:
+    async def run(self, user_id: str, thread_id: str, context: Dict[str, Any], preferred_llm: str = "gemini", owner_mode: bool = False) -> Dict[str, Any]:
         """
         Takes the assembled context, calls the preferred LLM, and handles the resulting actions.
         """
+        claude_active_tools = owner_tools if owner_mode else tools
+        gemini_active_tools = gemini_owner_tools if owner_mode else gemini_tools
         try:
             if preferred_llm == "gemini":
-                return await self._run_gemini(user_id, thread_id, context)
+                return await self._run_gemini(user_id, thread_id, context, gemini_active_tools)
             elif preferred_llm == "claude" or not preferred_llm:
-                return await self._run_claude(user_id, thread_id, context)
+                return await self._run_claude(user_id, thread_id, context, claude_active_tools)
             else:
                 return {"action": "reply", "text": f"I encountered an error: The requested LLM provider '{preferred_llm}' is not currently supported or installed."}
         except Exception as e:
             return {"action": "reply", "text": f"I encountered an error: {str(e)}"}
 
-    async def _run_claude(self, user_id: str, thread_id: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run_claude(self, user_id: str, thread_id: str, context: Dict[str, Any], active_tools: list = None) -> Dict[str, Any]:
+        if active_tools is None:
+            active_tools = tools
         # 1. Call Claude with context and tools
         response = await claude_client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=1024,
             system=context["system_prompt"],
             messages=context["messages"],
-            tools=tools
+            tools=active_tools
         )
 
         # 2. Check if Claude wants to use a tool
@@ -82,12 +101,14 @@ class LLMOrchestrator:
         
         return {"action": "reply", "text": reply_text}
 
-    async def _run_gemini(self, user_id: str, thread_id: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run_gemini(self, user_id: str, thread_id: str, context: Dict[str, Any], active_tools: list = None) -> Dict[str, Any]:
+        if active_tools is None:
+            active_tools = gemini_tools
         result = await call_gemini(
             api_key=settings.GEMINI_API_KEY,
             system_prompt=context["system_prompt"],
             messages=context["messages"],
-            tools=gemini_tools
+            tools=active_tools
         )
         
         if result["type"] == "tool_call":
@@ -98,6 +119,18 @@ class LLMOrchestrator:
             return {"action": "reply", "text": reply_text}
 
     async def handle_tool_call(self, user_id: str, thread_id: str, tool_name: str, args: Dict[str, Any]):
+        if tool_name == "send_message_to_contact":
+            recipient = args.get("recipient_phone", "")
+            text = args.get("message_text", "")
+            confirmation = f"Message sent to {recipient}: \"{text}\""
+            await self.working_memory.append_event(user_id, thread_id, {"role": "assistant", "content": confirmation})
+            return {
+                "action": "send_to_contact",
+                "recipient_phone": recipient,
+                "text": text,
+                "confirmation": confirmation,
+            }
+
         service, action = tool_name.split("_", 1)
         
         # 1. Check permissions

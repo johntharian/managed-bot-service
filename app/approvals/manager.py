@@ -9,7 +9,7 @@ class ApprovalManager:
 
     async def create_pending_approval(self, user_id: str, action_desc: str, payload: Dict[str, Any]) -> str:
         """
-        Creates a new pending approval and simulates push notification to BotsApp.
+        Creates a new pending approval and simulates push notification to Alter.
         """
         approval = PendingApproval(
             user_id=user_id,
@@ -21,7 +21,7 @@ class ApprovalManager:
         await self.db.commit()
         await self.db.refresh(approval)
         
-        # In a real app, this would POST an internal notification webhook to BotsApp 
+        # In a real app, this would POST an internal notification webhook to Alter 
         # to show up in the user's dashboard/websocket stream.
         
         return str(approval.id)

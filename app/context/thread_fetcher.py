@@ -5,13 +5,13 @@ from app.core.settings import settings
 from app.core.logger import logger
 
 
-class BotsAppThreadFetcher:
+class AlterThreadFetcher:
     """
-    Fetches Level 1 history: recent thread messages from the BotsApp Go server.
+    Fetches Level 1 history: recent thread messages from the Alter Go server.
     """
     def __init__(self):
-        self.server_url = settings.BOTSAPP_SERVER_URL
-        self.service_token = settings.BOTSAPP_SERVICE_TOKEN
+        self.server_url = settings.ALTER_SERVER_URL
+        self.service_token = settings.ALTER_SERVICE_TOKEN
 
     async def fetch_thread_history(self, thread_id: str, user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         headers = {"X-Service-Token": self.service_token}

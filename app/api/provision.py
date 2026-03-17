@@ -13,7 +13,7 @@ router = APIRouter()
 @router.post("/", response_model=ProvisionResponse)
 async def provision_bot(req: ProvisionRequest, db: AsyncSession = Depends(get_db)):
     """
-    Called by the BotsApp Go server when a user enables their managed bot.
+    Called by the Alter Go server when a user enables their managed bot.
     Creates a new user profile, generates an HMAC secret and bot webhook URL.
     """
     # Check if user already exists

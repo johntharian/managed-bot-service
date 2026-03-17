@@ -1,10 +1,10 @@
-# BotsApp Managed Bot Service
+# Alter Managed Bot Service
 
-This repository contains the standalone Python service designed to provide "Managed Bots" for BotsApp users. It acts as an integration layer between the core BotsApp asynchronous telecom infrastructure and LLM providers like Anthropic Claude and Google Gemini, granting bots permission-gated execution of tools (like Gmail and Google Calendar).
+This repository contains the standalone Python service designed to provide "Managed Bots" for Alter users. It acts as an integration layer between the core Alter asynchronous telecom infrastructure and LLM providers like Anthropic Claude and Google Gemini, granting bots permission-gated execution of tools (like Gmail and Google Calendar).
 
 ## Architecture Overview
 
-The Managed Bot Service communicates with the core BotsApp platform entirely asynchronously via HTTP webhooks. 
+The Managed Bot Service communicates with the core Alter platform entirely asynchronously via HTTP webhooks. 
 
 - **Language:** Python 3.12+ (FastAPI)
 - **Database:** PostgreSQL (asyncpg + SQLAlchemy + Alembic)
@@ -12,11 +12,11 @@ The Managed Bot Service communicates with the core BotsApp platform entirely asy
 - **LLM Support:** Anthropic Claude (`claude-3-5-sonnet`) & Google Gemini (`gemini-2.5-flash`)
 
 ### Data Flow
-1. BotsApp main server registers a user via `POST /provision`.
+1. Alter main server registers a user via `POST /provision`.
 2. This service generates a `bot_url` and a `secret_key` for HMAC validation.
-3. Arriving BotsApp messages hit `POST /bot/{user_id}` and verify the `X-Hub-Signature-256`.
+3. Arriving Alter messages hit `POST /bot/{user_id}` and verify the `X-Hub-Signature-256`.
 4. The **Context Assembler** merges three memory channels:
-   - **Thread History:** Fetched directly from the BotsApp main server via a shared service token.
+   - **Thread History:** Fetched directly from the Alter main server via a shared service token.
    - **Working Memory:** Recent turns kept in Redis `context:{user_id}:{thread_id}`.
    - **User Memory:** Long-term facts from the PostgreSQL `user_memory` table.
 5. The **LLM Orchestrator** calls the user's preferred LLM to process the intent.
@@ -24,7 +24,7 @@ The Managed Bot Service communicates with the core BotsApp platform entirely asy
    - `full_auto`: Execution proceeds.
    - `ask_first`: Intercepts and drops into a Pending Approval DB state, awaiting human intervention via the config dashboard.
    - `read_only`/`denied`: Blocks execution.
-7. The **Responder** returns the final text payload or action result to the BotsApp network via `POST /messages`.
+7. The **Responder** returns the final text payload or action result to the Alter network via `POST /messages`.
 
 ## Project Structure
 
@@ -34,7 +34,7 @@ managed-bot-service/
 ├── app/
 │   ├── api/                # FastAPI routers (bot.py, config.py, provision.py)
 │   ├── approvals/          # Celery tasks and Approval Manager
-│   ├── bot/                # LLM Orchestrator, Gemini adapter, and BotsApp Responder
+│   ├── bot/                # LLM Orchestrator, Gemini adapter, and Alter Responder
 │   ├── connectors/         # External tool wrappers (Gmail, GCal)
 │   ├── context/            # Memory managers (Working, Long Term, Thread Fetcher, Assembler)
 │   ├── core/               # App configuration, Database engine, and Security (Crypto/HMAC)
@@ -94,7 +94,7 @@ celery -A celery_app worker --loglevel=info
 - `POST /bot/{user_id}`: Core telecom message entrypoint. Must include the `X-Hub-Signature-256` header.
 
 ### Provisioning API
-- `POST /provision`: Internal endpoint for the BotsApp Go server to create managed profiles.
+- `POST /provision`: Internal endpoint for the Alter Go server to create managed profiles.
 
 ### Configuration API
 Used by frontends for bot management:

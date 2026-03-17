@@ -25,6 +25,21 @@ gemini_tools = [
     }
 ]
 
+gemini_owner_tools = gemini_tools + [
+    {
+        "name": "send_message_to_contact",
+        "description": "Send a message to one of the owner's contacts on their behalf via Alter.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "recipient_phone": {"type": "string"},
+                "message_text": {"type": "string"}
+            },
+            "required": ["recipient_phone", "message_text"]
+        }
+    }
+]
+
 async def call_gemini(api_key: str, system_prompt: str, messages: list, tools: list) -> dict:
     client = genai.Client(api_key=api_key)
     

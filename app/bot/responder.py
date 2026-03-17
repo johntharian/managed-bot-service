@@ -4,14 +4,14 @@ from app.core.settings import settings
 from app.core.logger import logger
 
 
-class BotsAppResponder:
+class AlterResponder:
     """
-    Posts replies back to the BotsApp Go server, which routes them through
+    Posts replies back to the Alter Go server, which routes them through
     its RabbitMQ delivery pipeline.
     """
     def __init__(self):
-        self.server_url = settings.BOTSAPP_SERVER_URL
-        self.service_token = settings.BOTSAPP_SERVICE_TOKEN
+        self.server_url = settings.ALTER_SERVER_URL
+        self.service_token = settings.ALTER_SERVICE_TOKEN
 
     async def send_reply(self, sender_user_id: str, recipient_phone: str, content: str) -> None:
         payload = {
@@ -22,7 +22,7 @@ class BotsAppResponder:
         }
         headers = {"X-Service-Token": self.service_token}
 
-        logger.info("Sending reply to BotsApp", sender_user_id=sender_user_id, recipient=recipient_phone)
+        logger.info("Sending reply to Alter", sender_user_id=sender_user_id, recipient=recipient_phone)
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 f"{self.server_url}/messages",
@@ -32,7 +32,7 @@ class BotsAppResponder:
 
         if not response.is_success:
             logger.error(
-                "Failed to send reply to BotsApp",
+                "Failed to send reply to Alter",
                 status_code=response.status_code,
                 body=response.text,
             )

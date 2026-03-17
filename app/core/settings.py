@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "BotsApp Managed Bot Service"
+    PROJECT_NAME: str = "Alter Managed Bot Service"
     API_V1_STR: str = ""
 
     CORS_ALLOWED_ORIGINS: str = "http://localhost:3000"
@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     REDIS_URL: str
 
     # Integration Configuration
-    BOTSAPP_SERVICE_TOKEN: str
-    BOTSAPP_SERVER_URL: str
+    ALTER_SERVICE_TOKEN: str
+    ALTER_SERVER_URL: str
     BASE_URL: str
 
     # Internal Security
