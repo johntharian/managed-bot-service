@@ -1,18 +1,14 @@
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "BotsApp Managed Bot Service"
     API_V1_STR: str = ""
 
-    CORS_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000"
 
-    @field_validator("CORS_ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
 
     # External DB & Redis
     DATABASE_URL: str
