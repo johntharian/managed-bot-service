@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from app.core.settings import settings
 from app.core.logger import logger
 
@@ -45,6 +46,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             raise e
 
 app.add_middleware(LoggingMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=300,
+)
 
 app.include_router(provision.router, prefix="/provision", tags=["provision"])
 app.include_router(bot.router, prefix="/bot", tags=["bot"])
