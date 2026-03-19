@@ -5,7 +5,7 @@ from sqlalchemy.future import select
 
 from app.core.database import get_db
 from app.core.logger import logger
-from app.core.security import verify_hmac_signature
+from app.core.security import verify_hmac_signature, decrypt_credentials
 from app.models.user import User
 from app.schemas.bot import MessageEnvelope
 from app.context.assembler import ContextAssembler
@@ -60,21 +60,35 @@ async def handle_bot_webhook(
         mentions=mentions
     )
 
+    raw_keys = {}
+    for provider, enc in (user.llm_api_keys or {}).items():
+        try:
+            raw_keys[provider] = decrypt_credentials(enc).get("api_key", "")
+        except Exception:
+            pass
+
     orchestrator = LLMOrchestrator(db)
     result = await orchestrator.run(
         user_id, message.thread_id, context,
         preferred_llm=user.preferred_llm,
-        owner_mode=is_owner_command
+        owner_mode=is_owner_command,
+        llm_api_keys=raw_keys,
     )
 
     responder = AlterResponder()
 
+    async def safe_send(recipient, text):
+        try:
+            await responder.send_reply(user_id, recipient, text)
+        except Exception as e:
+            logger.error("Failed to send reply", user_id=user_id, recipient=recipient, error=str(e))
+
     if result["action"] == "reply":
-        await responder.send_reply(user_id, message.from_, result["text"])
+        await safe_send(message.from_, result["text"])
 
     elif result["action"] == "send_to_contact":
-        await responder.send_reply(user_id, result["recipient_phone"], result["text"])
-        await responder.send_reply(user_id, message.from_, result["confirmation"])
+        await safe_send(result["recipient_phone"], result["text"])
+        await safe_send(message.from_, result["confirmation"])
 
     elif result["action"] == "pending_approval":
         app_mgr = ApprovalManager(db)
@@ -83,9 +97,9 @@ async def handle_bot_webhook(
             action_desc=result["tool"],
             payload=result["args"]
         )
-        await responder.send_reply(user_id, message.from_, result["text"])
+        await safe_send(message.from_, result["text"])
 
     elif result["action"] == "tool_executed":
-        await responder.send_reply(user_id, message.from_, "Action executed successfully.")
+        await safe_send(message.from_, "Action executed successfully.")
 
     return {"status": "processed"}

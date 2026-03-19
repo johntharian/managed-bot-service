@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 import traceback
 from datetime import datetime
 from typing import Any, Dict
@@ -35,6 +36,7 @@ class StructuredLogger:
             self.logger.setLevel(getattr(logging, log_level_str, logging.INFO))
             
             # File handler
+            os.makedirs("logs", exist_ok=True)
             file_handler = logging.FileHandler("logs/service.log")
             file_handler.setFormatter(JSONFormatter())
             self.logger.addHandler(file_handler)

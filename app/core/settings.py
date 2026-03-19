@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # Internal Security
     ENCRYPTION_KEY: str  # 32 bytes AES
-    ANTHROPIC_API_KEY: str
+    ANTHROPIC_API_KEY: str = ""
     GEMINI_API_KEY: str
 
     LOG_LEVEL: str = "INFO"

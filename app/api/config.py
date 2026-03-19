@@ -11,12 +11,12 @@ from app.models.bot_instruction import BotInstruction
 from app.models.pending_approval import PendingApproval
 from app.models.user_memory import UserMemory
 from app.models.user import User
-from app.core.security import encrypt_credentials
+from app.core.security import encrypt_credentials, decrypt_credentials
 
 from app.schemas.config import (
     ConnectIntegrationRequest, IntegrationResponse,
     PermissionUpdateRequest, InstructionUpdate,
-    ApprovalAction, MemoryResponse, UserPreferenceUpdate
+    ApprovalAction, MemoryResponse, UserPreferenceUpdate, LLMApiKeyUpdate
 )
 
 router = APIRouter()
@@ -79,6 +79,17 @@ async def get_memory(user_id: str, db: AsyncSession = Depends(get_db)):
     return [MemoryResponse(key=m.key, value=m.value, updated_at=m.updated_at.isoformat()) for m in memories]
 
 # --- Preferences ---
+@router.get("/{user_id}/preferences/llm")
+async def get_preferred_llm(user_id: str, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    keys = user.llm_api_keys or {}
+    return {
+        "preferred_llm": user.preferred_llm,
+        "api_keys_set": {provider: bool(key) for provider, key in keys.items()},
+    }
+
 @router.put("/{user_id}/preferences/llm")
 async def update_preferred_llm(user_id: str, pref: UserPreferenceUpdate, db: AsyncSession = Depends(get_db)):
     user = await db.get(User, user_id)
@@ -93,3 +104,14 @@ async def update_preferred_llm(user_id: str, pref: UserPreferenceUpdate, db: Asy
     user.preferred_llm = pref.preferred_llm
     await db.commit()
     return {"status": "success", "preferred_llm": user.preferred_llm}
+
+@router.put("/{user_id}/preferences/llm/key")
+async def set_llm_api_key(user_id: str, req: LLMApiKeyUpdate, db: AsyncSession = Depends(get_db)):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    keys = dict(user.llm_api_keys or {})
+    keys[req.provider] = encrypt_credentials({"api_key": req.api_key})
+    user.llm_api_keys = keys
+    await db.commit()
+    return {"status": "success"}

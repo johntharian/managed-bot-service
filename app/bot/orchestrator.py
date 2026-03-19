@@ -10,8 +10,6 @@ from app.connectors.gcal import GCalConnector
 from app.context.working_memory import WorkingMemory
 from app.bot.gemini_adapter import call_gemini, gemini_tools, gemini_owner_tools
 
-# In a real app, Anthropic AsyncClient should be instantiated once globally
-claude_client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 tools = [
     {
@@ -59,25 +57,27 @@ class LLMOrchestrator:
         self.permission_engine = PermissionEngine(db)
         self.working_memory = WorkingMemory()
 
-    async def run(self, user_id: str, thread_id: str, context: Dict[str, Any], preferred_llm: str = "gemini", owner_mode: bool = False) -> Dict[str, Any]:
+    async def run(self, user_id: str, thread_id: str, context: Dict[str, Any], preferred_llm: str = "gemini", owner_mode: bool = False, llm_api_keys: dict = None) -> Dict[str, Any]:
         """
         Takes the assembled context, calls the preferred LLM, and handles the resulting actions.
         """
         claude_active_tools = owner_tools if owner_mode else tools
         gemini_active_tools = gemini_owner_tools if owner_mode else gemini_tools
         try:
-            if preferred_llm == "gemini":
-                return await self._run_gemini(user_id, thread_id, context, gemini_active_tools)
-            elif preferred_llm == "claude" or not preferred_llm:
-                return await self._run_claude(user_id, thread_id, context, claude_active_tools)
-            else:
-                return {"action": "reply", "text": f"I encountered an error: The requested LLM provider '{preferred_llm}' is not currently supported or installed."}
+            if preferred_llm == "claude":
+                return await self._run_claude(user_id, thread_id, context, claude_active_tools, llm_api_keys=llm_api_keys)
+            else:  # gemini OR unset → Gemini
+                return await self._run_gemini(user_id, thread_id, context, gemini_active_tools, llm_api_keys=llm_api_keys)
         except Exception as e:
             return {"action": "reply", "text": f"I encountered an error: {str(e)}"}
 
-    async def _run_claude(self, user_id: str, thread_id: str, context: Dict[str, Any], active_tools: list = None) -> Dict[str, Any]:
+    async def _run_claude(self, user_id: str, thread_id: str, context: Dict[str, Any], active_tools: list = None, llm_api_keys: dict = None) -> Dict[str, Any]:
         if active_tools is None:
             active_tools = tools
+        raw_key = (llm_api_keys or {}).get("claude") or settings.ANTHROPIC_API_KEY
+        if not raw_key:
+            raise ValueError("ANTHROPIC_API_KEY is not configured")
+        claude_client = anthropic.AsyncAnthropic(api_key=raw_key)
         # 1. Call Claude with context and tools
         response = await claude_client.messages.create(
             model="claude-3-5-sonnet-20241022",
@@ -101,11 +101,12 @@ class LLMOrchestrator:
         
         return {"action": "reply", "text": reply_text}
 
-    async def _run_gemini(self, user_id: str, thread_id: str, context: Dict[str, Any], active_tools: list = None) -> Dict[str, Any]:
+    async def _run_gemini(self, user_id: str, thread_id: str, context: Dict[str, Any], active_tools: list = None, llm_api_keys: dict = None) -> Dict[str, Any]:
         if active_tools is None:
             active_tools = gemini_tools
+        api_key = (llm_api_keys or {}).get("gemini") or settings.GEMINI_API_KEY
         result = await call_gemini(
-            api_key=settings.GEMINI_API_KEY,
+            api_key=api_key,
             system_prompt=context["system_prompt"],
             messages=context["messages"],
             tools=active_tools

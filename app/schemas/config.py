@@ -28,3 +28,7 @@ class MemoryResponse(BaseModel):
 
 class UserPreferenceUpdate(BaseModel):
     preferred_llm: str
+
+class LLMApiKeyUpdate(BaseModel):
+    provider: str   # "gemini", "claude", or future custom
+    api_key: str

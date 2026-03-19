@@ -73,6 +73,15 @@ User instructions:
         # 4. Recent Thread History (L1)
         recent_thread_history = await self.thread_fetcher.fetch_thread_history(thread_id, user_id)
 
+        # Normalize L1 history: add 'role' field based on sender direction
+        normalized_history = [
+            {
+                "role": "assistant" if str(m.get("sender_id")) == str(user_id) else "user",
+                "content": m.get("content", ""),
+            }
+            for m in recent_thread_history
+        ]
+
         # 5. Working Memory (L2)
         working_memory_turns = await self.working_memory.get_state(user_id, thread_id)
 
@@ -80,7 +89,7 @@ User instructions:
         return {
             "system_prompt": system_prompt,
             "messages": [
-                *recent_thread_history,
+                *normalized_history,
                 *working_memory_turns,
                 {"role": "user", "content": incoming_message}
             ]

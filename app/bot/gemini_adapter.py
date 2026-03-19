@@ -1,3 +1,4 @@
+import asyncio
 from google import genai
 from google.genai import types
 
@@ -55,18 +56,30 @@ async def call_gemini(api_key: str, system_prompt: str, messages: list, tools: l
             import json
             content = json.dumps(content)
             
-        gemini_messages.append(types.Content(role=role, parts=[types.Part.from_text(content)]))
+        gemini_messages.append(types.Content(role=role, parts=[types.Part.from_text(text=content)]))
         
+    gemini_tool_objects = [
+        types.Tool(function_declarations=[
+            types.FunctionDeclaration(
+                name=t["name"],
+                description=t["description"],
+                parameters=t["parameters"]
+            )
+            for t in tools
+        ])
+    ] if tools else []
+
     config = types.GenerateContentConfig(
-        tools=tools, # Pass our tools list
+        tools=gemini_tool_objects,
         system_instruction=system_prompt,
         temperature=0.7,
     )
     
-    response = client.models.generate_content(
+    response = await asyncio.to_thread(
+        client.models.generate_content,
         model='gemini-2.5-flash',
         contents=gemini_messages,
-        config=config
+        config=config,
     )
     
     # Parse for tools vs text
