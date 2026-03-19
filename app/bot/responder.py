@@ -13,16 +13,16 @@ class AlterResponder:
         self.server_url = settings.ALTER_SERVER_URL
         self.service_token = settings.ALTER_SERVICE_TOKEN
 
-    async def send_reply(self, sender_user_id: str, recipient_phone: str, content: str) -> None:
+    async def send_reply(self, sender_user_id: str, recipient_phone: str, content: str, intent: str = "reply") -> None:
         payload = {
             "sender_user_id": sender_user_id,
             "to": recipient_phone,
-            "intent": "reply",
+            "intent": intent,
             "payload": {"text": content},
         }
         headers = {"X-Service-Token": self.service_token}
 
-        logger.info("Sending reply to Alter", sender_user_id=sender_user_id, recipient=recipient_phone)
+        logger.info("Sending reply to Alter", sender_user_id=sender_user_id, recipient=recipient_phone, intent=intent)
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 f"{self.server_url}/messages",

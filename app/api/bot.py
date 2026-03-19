@@ -87,7 +87,12 @@ async def handle_bot_webhook(
         await safe_send(message.from_, result["text"])
 
     elif result["action"] == "send_to_contact":
-        await safe_send(result["recipient_phone"], result["text"])
+        # Use "bot_message" intent so the recipient's LLM is invoked (not skipped).
+        # "reply" would short-circuit delivery at the server's intent guard.
+        try:
+            await responder.send_reply(user_id, result["recipient_phone"], result["text"], intent="bot_message")
+        except Exception as e:
+            logger.error("Failed to send bot message to contact", user_id=user_id, recipient=result["recipient_phone"], error=str(e))
         await safe_send(message.from_, result["confirmation"])
 
     elif result["action"] == "pending_approval":
