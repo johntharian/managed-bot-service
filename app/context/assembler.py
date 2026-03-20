@@ -126,11 +126,12 @@ Long-term user memory:
         working_memory_turns = await self.working_memory.get_state(user_id, thread_id)
 
         # Return bundle
+        # incoming_message is already {"role": ..., "content": ...} — append directly
         return {
             "system_prompt": system_prompt,
             "messages": [
                 *normalized_history,
                 *working_memory_turns,
-                {"role": "user", "content": incoming_message}
+                incoming_message,
             ]
         }
