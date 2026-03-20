@@ -17,6 +17,8 @@ from app.approvals.manager import ApprovalManager
 
 router = APIRouter()
 
+_HUMAN_INTENTS = {"text_message", "owner_command"}
+
 @router.post("/{user_id}")
 async def handle_bot_webhook(
     user_id: str,
@@ -54,17 +56,17 @@ async def handle_bot_webhook(
     mentions = message.payload.get("mentions", [])
 
     # --- Style counter (counts all human messages, before triage) ---
-    _HUMAN_INTENTS = {"text_message", "owner_command"}
     if message.intent in _HUMAN_INTENTS:
         counter_key = f"style:counter:{user_id}"
         count = await redis_client.incr(counter_key)
         if count >= 10:
             await redis_client.delete(counter_key)
             try:
-                from app.persona.tasks import update_style_profile
-                update_style_profile.delay(user_id)
+                from app.persona.tasks import update_style_profile as _update_style_profile
             except ImportError:
-                pass  # persona module not yet wired (Task 7)
+                _update_style_profile = None  # persona module not yet wired (Task 7)
+            if _update_style_profile is not None:
+                _update_style_profile.delay(user_id)
 
     # --- Triage (owner_command always bypasses) ---
     if message.intent != "owner_command":
