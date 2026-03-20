@@ -49,8 +49,11 @@ async def test_build_profile_writes_to_db_on_first_run():
     mock_messages = [
         {"content": f"message number {i}", "intent": "text_message"} for i in range(10)
     ]
-    mock_execute = AsyncMock()
-    mock_execute.return_value.scalar_one_or_none = MagicMock(return_value=None)
+    # Set up execute result as a plain MagicMock (the value after awaiting)
+    # so scalar_one_or_none() is synchronous and doesn't produce unawaited coroutine warnings
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalar_one_or_none.return_value = None
+    mock_execute = AsyncMock(return_value=mock_execute_result)
 
     mock_db = AsyncMock()
     mock_db.execute = mock_execute
