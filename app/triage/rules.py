@@ -3,7 +3,7 @@ import re
 
 _EXACT_ACKS = frozenset([
     "ok", "okay", "k", "thanks", "thx", "np", "noted", "sure",
-    "got it", "will do", "sounds good", "👍", "😊", "✅",
+    "got it", "will do", "sounds good", "👍", "😊", "✅", "looks good", "no problem", "lovely"
 ])
 
 _EMOJI_RE = re.compile(

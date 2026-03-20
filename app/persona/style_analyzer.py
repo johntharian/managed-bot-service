@@ -10,6 +10,16 @@ _EMOJI_RE = re.compile(
 )
 _END_PUNCT_RE = re.compile(r'[.!?]$')
 _WORD_RE = re.compile(r'\b[a-z]{2,}\b')
+_CONTRACTION_RE = re.compile(
+    r"\b(?:i'm|i've|i'll|i'd|you're|you've|you'll|you'd"
+    r"|he's|he'd|he'll|she's|she'd|she'll"
+    r"|we're|we've|we'll|we'd|they're|they've|they'll|they'd"
+    r"|it's|that's|who's|what's|here's|there's|where's"
+    r"|don't|doesn't|didn't|won't|wouldn't|can't|couldn't"
+    r"|shouldn't|hasn't|haven't|hadn't|isn't|aren't|wasn't|weren't"
+    r"|let's|that'll|how's|why's)\b",
+    flags=re.IGNORECASE,
+)
 
 _HUMAN_INTENTS = {"text_message", "owner_command"}
 
@@ -30,6 +40,7 @@ def extract_style_signals(messages: list[dict[str, Any]]) -> dict[str, Any]:
     avg_length = sum(len(t) for t in texts) / len(texts)
     emoji_freq = sum(1 for t in texts if _EMOJI_RE.search(t)) / len(texts)
     end_punct_ratio = sum(1 for t in texts if _END_PUNCT_RE.search(t.strip())) / len(texts)
+    uses_contractions = sum(1 for t in texts if _CONTRACTION_RE.search(t)) / len(texts)
 
     all_words = []
     for text in texts:
@@ -48,6 +59,7 @@ def extract_style_signals(messages: list[dict[str, Any]]) -> dict[str, Any]:
         "avg_length": round(avg_length, 1),
         "emoji_frequency": round(emoji_freq, 3),
         "end_punct_ratio": round(end_punct_ratio, 3),
+        "uses_contractions": round(uses_contractions, 3),
         "common_phrases": common_phrases[:10],
         "formality": formality,
     }
