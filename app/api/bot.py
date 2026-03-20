@@ -9,6 +9,8 @@ from app.core.security import verify_hmac_signature, decrypt_credentials
 from app.models.user import User
 from app.schemas.bot import MessageEnvelope
 from app.context.assembler import ContextAssembler
+from app.context.thread_fetcher import AlterThreadFetcher
+from app.context.working_memory import redis_client
 from app.bot.orchestrator import LLMOrchestrator
 from app.bot.responder import AlterResponder
 from app.approvals.manager import ApprovalManager
@@ -50,6 +52,68 @@ async def handle_bot_webhook(
     content = message.payload.get("text", json.dumps(message.payload))
     is_owner_command = message.intent == "owner_command"
     mentions = message.payload.get("mentions", [])
+
+    # --- Style counter (counts all human messages, before triage) ---
+    _HUMAN_INTENTS = {"text_message", "owner_command"}
+    if message.intent in _HUMAN_INTENTS:
+        counter_key = f"style:counter:{user_id}"
+        count = await redis_client.incr(counter_key)
+        if count >= 10:
+            await redis_client.delete(counter_key)
+            try:
+                from app.persona.tasks import update_style_profile
+                update_style_profile.delay(user_id)
+            except ImportError:
+                pass  # persona module not yet wired (Task 7)
+
+    # --- Triage (owner_command always bypasses) ---
+    if message.intent != "owner_command":
+        from app.triage.rules import should_skip
+        from app.triage.classifier import classify_message
+        from app.models.triage_result import MessageTriageResult
+
+        message_text = (
+            message.payload.get("text", "")
+            if isinstance(message.payload, dict)
+            else str(message.payload)
+        )
+
+        if should_skip(message_text):
+            db.add(MessageTriageResult(
+                message_id=message.message_id,
+                user_id=user_id,
+                outcome="skipped_rules",
+                reason="rule_match",
+            ))
+            await db.commit()
+            return {"status": "skipped", "reason": "rule_match"}
+
+        # Fetch last 2 messages for classifier context
+        last_two = []
+        try:
+            fetcher = AlterThreadFetcher()
+            history = await fetcher.fetch_thread_history(
+                thread_id=message.thread_id,
+                user_id=user_id,
+                limit=2,
+            )
+            last_two = history[-2:] if len(history) >= 2 else history
+        except Exception:
+            pass  # classifier still works without context
+
+        classification = await classify_message(message_text, last_two, message.intent)
+
+        db.add(MessageTriageResult(
+            message_id=message.message_id,
+            user_id=user_id,
+            outcome="skipped_classifier" if not classification["needs_reply"] else "passed",
+            confidence=classification["confidence"],
+            reason=classification["reason"],
+        ))
+        await db.commit()
+
+        if not classification["needs_reply"]:
+            return {"status": "skipped", "reason": "classifier"}
 
     # 4. Assemble context and run orchestrator
     assembler = ContextAssembler(db)
