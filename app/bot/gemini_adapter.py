@@ -2,44 +2,20 @@ import asyncio
 from google import genai
 from google.genai import types
 
-gemini_tools = [
-    {
-        "name": "gmail_read_inbox",
-        "description": "Read the recent emails from the user's Gmail inbox.",
-        "parameters": {
-            "type": "object",
-            "properties": {"max_results": {"type": "integer"}},
-        }
+gemini_send_message_tool = {
+    "name": "send_message_to_contact",
+    "description": "Send a message to one of the owner's contacts on their behalf via Alter.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "recipient_phone": {"type": "string"},
+            "message_text": {"type": "string"},
+        },
+        "required": ["recipient_phone", "message_text"],
     },
-    {
-        "name": "gcal_create_event",
-        "description": "Create a new event on the user's Google Calendar.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "summary": {"type": "string"},
-                "start_time": {"type": "string"},
-                "end_time": {"type": "string"}
-            },
-            "required": ["summary", "start_time", "end_time"]
-        }
-    }
-]
+}
 
-gemini_owner_tools = gemini_tools + [
-    {
-        "name": "send_message_to_contact",
-        "description": "Send a message to one of the owner's contacts on their behalf via Alter.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "recipient_phone": {"type": "string"},
-                "message_text": {"type": "string"}
-            },
-            "required": ["recipient_phone", "message_text"]
-        }
-    }
-]
+gemini_owner_tools = [gemini_send_message_tool]
 
 async def call_gemini(api_key: str, system_prompt: str, messages: list, tools: list) -> dict:
     client = genai.Client(api_key=api_key)

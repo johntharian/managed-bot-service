@@ -7,6 +7,7 @@ from app.context.long_term_memory import LongTermMemory
 from app.models.bot_instruction import BotInstruction
 from app.models.style_profile import StyleProfile
 from app.models.user import User
+from app.connectors.registry import get_registry
 
 _CATEGORY_LABELS = {
     "communication_style": "Communication style",
@@ -109,6 +110,11 @@ Long-term user memory:
 {long_term_memory_str if long_term_memory_str else "No preferences learned yet."}
 """
         system_prompt = persona_block + "\n" + base_prompt
+
+        # 3b. Connector context — injected fresh on every LLM call
+        connector_context = await get_registry().get_active_context(user_id, self.db)
+        if connector_context:
+            system_prompt += "\n\n" + connector_context
 
         # 4. Recent Thread History (L1)
         recent_thread_history = await self.thread_fetcher.fetch_thread_history(thread_id, user_id)

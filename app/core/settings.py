@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     GEMINI_API_KEY: str
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
+
+    # Notion OAuth
+    NOTION_OAUTH_CLIENT_ID: str = ""
+    NOTION_OAUTH_CLIENT_SECRET: str = ""
+
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
