@@ -10,6 +10,9 @@ class BotInstruction(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(String, ForeignKey("managed_bot_users.user_id"), nullable=False)
     instruction_text = Column(String, nullable=False)
+    category = Column(String, nullable=False, server_default="general")
+    # Valid values: 'communication_style', 'relationships', 'role_context',
+    #               'response_preferences', 'general'
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="instructions")
