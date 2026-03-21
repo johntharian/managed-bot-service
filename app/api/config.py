@@ -36,6 +36,18 @@ async def connect_integration(user_id: str, service: str, req: ConnectIntegratio
     return IntegrationResponse(id=str(integ.id), service=integ.service, connected_at=integ.connected_at.isoformat())
 
 
+@router.get("/{user_id}/integrations")
+async def list_integrations(user_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Integration).where(Integration.user_id == user_id, Integration.active == True)
+    )
+    integrations = result.scalars().all()
+    return [
+        {"service": i.service, "connected_at": i.connected_at.isoformat()}
+        for i in integrations
+    ]
+
+
 # --- Instructions ---
 @router.get("/{user_id}/instructions")
 async def get_instructions(user_id: str, db: AsyncSession = Depends(get_db)):

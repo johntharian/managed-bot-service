@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, DateTime, JSON, func
+from sqlalchemy import Column, String, DateTime, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from app.models import Base
 
@@ -10,7 +11,7 @@ class User(Base):
     bot_url = Column(String, nullable=False)
     secret_key = Column(String, nullable=False)
     preferred_llm = Column(String, server_default="gemini", nullable=False)
-    llm_api_keys = Column(JSON, nullable=True, default=dict)
+    llm_api_keys = Column(JSONB, nullable=True, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     integrations = relationship("Integration", back_populates="user", cascade="all, delete-orphan")

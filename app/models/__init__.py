@@ -9,3 +9,5 @@ from app.models.bot_permission import BotPermission
 from app.models.bot_instruction import BotInstruction
 from app.models.pending_approval import PendingApproval
 from app.models.user_memory import UserMemory
+from app.models.triage_result import MessageTriageResult  # noqa
+from app.models.style_profile import StyleProfile  # noqa

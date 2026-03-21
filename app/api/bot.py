@@ -9,11 +9,15 @@ from app.core.security import verify_hmac_signature, decrypt_credentials
 from app.models.user import User
 from app.schemas.bot import MessageEnvelope
 from app.context.assembler import ContextAssembler
+from app.context.thread_fetcher import AlterThreadFetcher
+from app.context.working_memory import redis_client
 from app.bot.orchestrator import LLMOrchestrator
 from app.bot.responder import AlterResponder
 from app.approvals.manager import ApprovalManager
 
 router = APIRouter()
+
+_HUMAN_INTENTS = {"text_message", "owner_command"}
 
 @router.post("/{user_id}")
 async def handle_bot_webhook(
@@ -51,6 +55,77 @@ async def handle_bot_webhook(
     is_owner_command = message.intent == "owner_command"
     mentions = message.payload.get("mentions", [])
 
+    # Debug logging — remove before production
+    logger.info("incoming_message",
+        user_id=user_id,
+        thread_id=message.thread_id,
+        from_=message.from_,
+        intent=message.intent,
+        content=content,
+    )
+
+    # --- Style counter (counts all human messages, before triage) ---
+    if message.intent in _HUMAN_INTENTS:
+        counter_key = f"style:counter:{user_id}"
+        count = await redis_client.incr(counter_key)
+        if count >= 10:
+            await redis_client.delete(counter_key)
+            try:
+                from app.persona.tasks import update_style_profile as _update_style_profile
+            except ImportError:
+                _update_style_profile = None  # persona module not yet wired (Task 7)
+            if _update_style_profile is not None:
+                _update_style_profile.delay(user_id)
+
+    # --- Triage (owner_command always bypasses) ---
+    if message.intent != "owner_command":
+        from app.triage.rules import should_skip
+        from app.triage.classifier import classify_message
+        from app.models.triage_result import MessageTriageResult
+
+        message_text = (
+            message.payload.get("text", "")
+            if isinstance(message.payload, dict)
+            else str(message.payload)
+        )
+
+        if should_skip(message_text):
+            db.add(MessageTriageResult(
+                message_id=message.message_id,
+                user_id=user_id,
+                outcome="skipped_rules",
+                reason="rule_match",
+            ))
+            await db.commit()
+            return {"status": "skipped", "reason": "rule_match"}
+
+        # Fetch last 2 messages for classifier context
+        last_two = []
+        try:
+            fetcher = AlterThreadFetcher()
+            history = await fetcher.fetch_thread_history(
+                thread_id=message.thread_id,
+                user_id=user_id,
+                limit=2,
+            )
+            last_two = history[-2:] if len(history) >= 2 else history
+        except Exception:
+            pass  # classifier still works without context
+
+        classification = await classify_message(message_text, last_two, message.intent)
+
+        db.add(MessageTriageResult(
+            message_id=message.message_id,
+            user_id=user_id,
+            outcome="skipped_classifier" if not classification["needs_reply"] else "passed",
+            confidence=classification["confidence"],
+            reason=classification["reason"],
+        ))
+        await db.commit()
+
+        if not classification["needs_reply"]:
+            return {"status": "skipped", "reason": "classifier"}
+
     # 4. Assemble context and run orchestrator
     assembler = ContextAssembler(db)
     context = await assembler.assemble(
@@ -78,6 +153,8 @@ async def handle_bot_webhook(
     responder = AlterResponder()
 
     async def safe_send(recipient, text):
+        # Debug logging — remove before production
+        logger.info("outgoing_message", user_id=user_id, recipient=recipient, content=text)
         try:
             await responder.send_reply(user_id, recipient, text)
         except Exception as e:
@@ -103,8 +180,5 @@ async def handle_bot_webhook(
             payload=result["args"]
         )
         await safe_send(message.from_, result["text"])
-
-    elif result["action"] == "tool_executed":
-        await safe_send(message.from_, "Action executed successfully.")
 
     return {"status": "processed"}

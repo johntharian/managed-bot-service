@@ -8,7 +8,7 @@ celery_app = Celery(
     "managed_bot",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["app.approvals.tasks"]
+    include=["app.approvals.tasks", "app.persona.tasks"]
 )
 
 celery_app.conf.update(
