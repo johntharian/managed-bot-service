@@ -100,6 +100,11 @@ class NotionConnector(BaseConnector):
                     "required": ["database_id", "title"],
                 },
             },
+            {
+                "name": "notion_get_recent_pages",
+                "description": "Get the user's recently edited Notion pages. Call this when the user asks about their notes, documents, or Notion workspace.",
+                "input_schema": {"type": "object", "properties": {}},
+            },
         ]
 
     async def handle_tool_call(
@@ -157,5 +162,9 @@ class NotionConnector(BaseConnector):
                 )
                 resp.raise_for_status()
                 return ToolResult(content=resp.json())
+
+        if tool_name == "notion_get_recent_pages":
+            block = await self.get_context(user_id, db)
+            return ToolResult(content={"pages": block.content})
 
         return ToolResult(content=None, error=f"Unknown notion tool: {tool_name}")

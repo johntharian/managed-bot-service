@@ -43,6 +43,27 @@ async def test_get_context_returns_unread_count_and_subjects():
     assert block.token_count == len(block.content) // 4
 
 
+async def test_handle_tool_call_get_inbox_summary():
+    """gmail_get_inbox_summary calls get_context and returns summary."""
+    cred_manager = MagicMock(spec=CredentialManager)
+    cred_manager.get = AsyncMock(return_value={
+        "access_token": "tok", "refresh_token": "ref",
+        "client_id": "cid", "client_secret": "cs", "token_uri": "uri"
+    })
+    connector = GmailConnector(cred_manager)
+    mock_db = AsyncMock()
+
+    mock_svc = _mock_service()
+    with patch("app.connectors.builtin.gmail._build_service", return_value=mock_svc):
+        result = await connector.handle_tool_call(
+            "gmail_get_inbox_summary", {}, "user_1", mock_db
+        )
+
+    assert result.error is None
+    assert "summary" in result.content
+    assert "unread" in result.content["summary"]
+
+
 async def test_handle_tool_call_send_email():
     """handle_tool_call sends an email and returns sent status."""
     cred_manager = MagicMock(spec=CredentialManager)

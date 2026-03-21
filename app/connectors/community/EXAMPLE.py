@@ -76,7 +76,12 @@ class ExampleConnector(BaseConnector):
                     },
                     "required": ["param"],
                 },
-            }
+            },
+            {
+                "name": "example_get_context",
+                "description": "Get a summary of the user's Example service data. Call this when context from this service is relevant.",
+                "input_schema": {"type": "object", "properties": {}},
+            },
         ]
 
     async def handle_tool_call(
@@ -89,4 +94,7 @@ class ExampleConnector(BaseConnector):
         creds = await self.cred_manager.get(user_id, self.name, db)
         if tool_name == "example_do_thing":
             return ToolResult(content={"echo": args.get("param")})
+        if tool_name == "example_get_context":
+            block = await self.get_context(user_id, db)
+            return ToolResult(content={"summary": block.content})
         return ToolResult(content=None, error=f"Unknown tool: {tool_name}")

@@ -105,6 +105,11 @@ class GCalConnector(BaseConnector):
                     "required": ["time_min", "time_max"],
                 },
             },
+            {
+                "name": "gcal_get_upcoming_events",
+                "description": "Get the user's upcoming Google Calendar events for today and tomorrow. Call this when the user asks about their schedule, availability, or before creating or modifying events.",
+                "input_schema": {"type": "object", "properties": {}},
+            },
         ]
 
     async def handle_tool_call(
@@ -148,5 +153,9 @@ class GCalConnector(BaseConnector):
             ).execute()
             events = events_result.get("items", [])
             return ToolResult(content={"events": events, "count": len(events)})
+
+        if tool_name == "gcal_get_upcoming_events":
+            block = await self.get_context(user_id, db)
+            return ToolResult(content={"events": block.content})
 
         return ToolResult(content=None, error=f"Unknown gcal tool: {tool_name}")

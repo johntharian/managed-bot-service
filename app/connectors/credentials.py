@@ -89,7 +89,7 @@ class CredentialManager:
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
 
-        expiry_dt = datetime.fromisoformat(creds["expiry"]) if creds.get("expiry") else None
+        expiry_dt = datetime.fromisoformat(creds["expiry"]).replace(tzinfo=None) if creds.get("expiry") else None
         creds_obj = Credentials(
             token=creds["access_token"],
             refresh_token=creds.get("refresh_token"),

@@ -1,8 +1,10 @@
+import json
 import anthropic
 from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import settings
+from app.core.logger import logger
 from app.permissions.engine import PermissionEngine
 from app.connectors.registry import get_registry
 from app.connectors.base import CredentialsExpiredError
@@ -74,7 +76,27 @@ class LLMOrchestrator:
         # 2. Check if Claude wants to use a tool
         for block in response.content:
             if block.type == "tool_use":
-                return await self.handle_tool_call(user_id, thread_id, block.name, block.input)
+                tool_result = await self.handle_tool_call(user_id, thread_id, block.name, block.input)
+                if tool_result["action"] != "tool_executed":
+                    return tool_result
+                # Feed the tool result back to Claude for a synthesized reply
+                followup_messages = context["messages"] + [
+                    {"role": "assistant", "content": f"[Called tool: {block.name}]"},
+                    {"role": "user", "content": f"Tool result: {json.dumps(tool_result['result'])}"},
+                ]
+                followup = await claude_client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=1024,
+                    system=context["system_prompt"],
+                    messages=followup_messages,
+                )
+                text_blocks = [b.text for b in followup.content if b.type == "text"]
+                reply_text = "\n".join(text_blocks)
+                logger.info("claude_followup_reply", tool=block.name, reply=reply_text)
+                if not reply_text:
+                    reply_text = f"Done — {block.name.replace('_', ' ')} completed successfully."
+                await self.working_memory.append_event(user_id, thread_id, {"role": "assistant", "content": reply_text})
+                return {"action": "reply", "text": reply_text}
 
         # 3. If no tool, just a text response
         text_blocks = [b.text for b in response.content if b.type == "text"]
@@ -97,7 +119,26 @@ class LLMOrchestrator:
         )
         
         if result["type"] == "tool_call":
-            return await self.handle_tool_call(user_id, thread_id, result["name"], result["args"])
+            tool_result = await self.handle_tool_call(user_id, thread_id, result["name"], result["args"])
+            if tool_result["action"] != "tool_executed":
+                return tool_result
+            # Feed the tool result back to Gemini for a synthesized reply
+            followup_messages = context["messages"] + [
+                {"role": "assistant", "content": f"[Called tool: {result['name']}]"},
+                {"role": "user", "content": f"Tool result: {json.dumps(tool_result['result'])}"},
+            ]
+            followup = await call_gemini(
+                api_key=api_key,
+                system_prompt=context["system_prompt"],
+                messages=followup_messages,
+                tools=[],  # no tools on follow-up to avoid loops
+            )
+            reply_text = followup.get("content", "") or ""
+            logger.info("gemini_followup_reply", tool=result["name"], reply=reply_text)
+            if not reply_text:
+                reply_text = f"Done — {result['name'].replace('_', ' ')} completed successfully."
+            await self.working_memory.append_event(user_id, thread_id, {"role": "assistant", "content": reply_text})
+            return {"action": "reply", "text": reply_text}
         else:
             reply_text = result["content"]
             await self.working_memory.append_event(user_id, thread_id, {"role": "assistant", "content": reply_text})
@@ -126,10 +167,6 @@ class LLMOrchestrator:
             msg = f"I am not authorized to perform {action} on {service}."
             await self.working_memory.append_event(user_id, thread_id, {"role": "assistant", "content": msg})
             return {"action": "reply", "text": msg}
-
-        if level == "ask_first":
-            msg = f"I need your permission to {action}. Please approve this request in your control panel."
-            return {"action": "pending_approval", "text": msg, "tool": tool_name, "args": args}
 
         # Execute via registry
         registry = get_registry()

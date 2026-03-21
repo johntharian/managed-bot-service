@@ -31,6 +31,31 @@ async def test_get_context_returns_events():
     assert "Team standup" in block.content
 
 
+async def test_handle_tool_call_get_upcoming_events():
+    """gcal_get_upcoming_events calls get_context and returns events."""
+    cred_manager = MagicMock(spec=CredentialManager)
+    cred_manager.get = AsyncMock(return_value={
+        "access_token": "tok", "refresh_token": "ref",
+        "client_id": "cid", "client_secret": "cs", "token_uri": "uri"
+    })
+    connector = GCalConnector(cred_manager)
+
+    mock_svc = MagicMock()
+    mock_svc.events.return_value.list.return_value.execute.return_value = {
+        "items": [{"summary": "Team standup", "start": {"dateTime": "2026-03-21T09:00:00+00:00"}}]
+    }
+    mock_db = AsyncMock()
+
+    with patch("app.connectors.builtin.gcal._build_service", return_value=mock_svc):
+        result = await connector.handle_tool_call(
+            "gcal_get_upcoming_events", {}, "user_1", mock_db
+        )
+
+    assert result.error is None
+    assert "events" in result.content
+    assert "Team standup" in result.content["events"]
+
+
 async def test_handle_tool_call_create_event():
     """handle_tool_call creates an event and returns event_id."""
     cred_manager = MagicMock(spec=CredentialManager)

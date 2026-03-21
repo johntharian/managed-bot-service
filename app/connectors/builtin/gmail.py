@@ -106,6 +106,11 @@ class GmailConnector(BaseConnector):
                     "required": ["query"],
                 },
             },
+            {
+                "name": "gmail_get_inbox_summary",
+                "description": "Get a summary of the user's Gmail inbox: unread count and recent email subjects. Call this when the user asks about emails, their inbox, or when you need email context.",
+                "input_schema": {"type": "object", "properties": {}},
+            },
         ]
 
     async def handle_tool_call(
@@ -142,5 +147,9 @@ class GmailConnector(BaseConnector):
             ).execute()
             messages = result.get("messages", [])
             return ToolResult(content={"messages": messages, "count": len(messages)})
+
+        if tool_name == "gmail_get_inbox_summary":
+            block = await self.get_context(user_id, db)
+            return ToolResult(content={"summary": block.content})
 
         return ToolResult(content=None, error=f"Unknown gmail tool: {tool_name}")

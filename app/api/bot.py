@@ -55,6 +55,15 @@ async def handle_bot_webhook(
     is_owner_command = message.intent == "owner_command"
     mentions = message.payload.get("mentions", [])
 
+    # Debug logging — remove before production
+    logger.info("incoming_message",
+        user_id=user_id,
+        thread_id=message.thread_id,
+        from_=message.from_,
+        intent=message.intent,
+        content=content,
+    )
+
     # --- Style counter (counts all human messages, before triage) ---
     if message.intent in _HUMAN_INTENTS:
         counter_key = f"style:counter:{user_id}"
@@ -144,6 +153,8 @@ async def handle_bot_webhook(
     responder = AlterResponder()
 
     async def safe_send(recipient, text):
+        # Debug logging — remove before production
+        logger.info("outgoing_message", user_id=user_id, recipient=recipient, content=text)
         try:
             await responder.send_reply(user_id, recipient, text)
         except Exception as e:
@@ -169,8 +180,5 @@ async def handle_bot_webhook(
             payload=result["args"]
         )
         await safe_send(message.from_, result["text"])
-
-    elif result["action"] == "tool_executed":
-        await safe_send(message.from_, "Action executed successfully.")
 
     return {"status": "processed"}

@@ -25,14 +25,17 @@ async def call_gemini(api_key: str, system_prompt: str, messages: list, tools: l
     gemini_messages = []
     for msg in messages:
         role = "user" if msg["role"] == "user" else "model"
-        
-        # If content is a dict (like the webhook envelope), dump to string
+
         content = msg["content"]
         if isinstance(content, dict):
             import json
             content = json.dumps(content)
-            
-        gemini_messages.append(types.Content(role=role, parts=[types.Part.from_text(text=content)]))
+
+        # Gemini rejects empty Parts — replace blank content (e.g. media-only messages) with a placeholder
+        if not content or not str(content).strip():
+            content = "[media message]"
+
+        gemini_messages.append(types.Content(role=role, parts=[types.Part.from_text(text=str(content))]))
         
     gemini_tool_objects = [
         types.Tool(function_declarations=[
@@ -68,7 +71,16 @@ async def call_gemini(api_key: str, system_prompt: str, messages: list, tools: l
             "args": {k: v for k, v in fc.args.items()}
         }
     else:
+        # response.text can be None when the model produces only thinking tokens
+        text = response.text
+        if not text:
+            # Attempt to extract text from candidates directly
+            try:
+                parts = response.candidates[0].content.parts
+                text = "\n".join(p.text for p in parts if hasattr(p, "text") and p.text)
+            except Exception:
+                pass
         return {
             "type": "text",
-            "content": response.text
+            "content": text or "",
         }

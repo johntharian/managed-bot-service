@@ -45,6 +45,31 @@ async def test_get_context_lists_recent_pages():
     assert "Meeting Notes" in block.content
 
 
+async def test_handle_tool_call_get_recent_pages():
+    """notion_get_recent_pages calls get_context and returns pages."""
+    cred_manager = MagicMock(spec=CredentialManager)
+    cred_manager.get = AsyncMock(return_value={"access_token": "tok_notion"})
+    connector = NotionConnector(cred_manager)
+
+    mock_db = AsyncMock()
+    mock_resp = _mock_search_response(["My Project", "Meeting Notes"])
+
+    with patch("httpx.AsyncClient") as MockClient:
+        mock_client_instance = AsyncMock()
+        mock_client_instance.__aenter__.return_value = mock_client_instance
+        mock_client_instance.__aexit__.return_value = None
+        mock_client_instance.post.return_value = mock_resp
+        MockClient.return_value = mock_client_instance
+
+        result = await connector.handle_tool_call(
+            "notion_get_recent_pages", {}, "user_1", mock_db
+        )
+
+    assert result.error is None
+    assert "pages" in result.content
+    assert "My Project" in result.content["pages"]
+
+
 async def test_handle_tool_call_search_pages():
     """notion_search_pages calls the Notion search endpoint and returns results."""
     cred_manager = MagicMock(spec=CredentialManager)
