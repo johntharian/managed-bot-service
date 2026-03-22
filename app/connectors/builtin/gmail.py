@@ -12,6 +12,17 @@ from app.connectors.base import BaseConnector, ContextBlock, ToolDefinition, Too
 from app.connectors.credentials import CredentialManager
 
 
+def _extract_body(payload: dict) -> str:
+    """Recursively extract plain-text body from a Gmail message payload."""
+    if payload.get("body", {}).get("data"):
+        return base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="replace")
+    for part in payload.get("parts", []):
+        text = _extract_body(part)
+        if text:
+            return text
+    return ""
+
+
 def _build_service(creds_dict: dict):
     creds_obj = Credentials(
         token=creds_dict["access_token"],
@@ -71,8 +82,19 @@ class GmailConnector(BaseConnector):
     def get_tools(self) -> list[ToolDefinition]:
         return [
             {
+                "name": "gmail_list_recent_emails",
+                "description": "List the most recent emails from the inbox. Returns message IDs, subjects, senders, dates, and snippets. Always call this first when the user asks to summarize, review, or work with recent emails.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "count": {"type": "integer", "description": "Number of recent emails to fetch (default 5, max 10)"},
+                    },
+                    "required": [],
+                },
+            },
+            {
                 "name": "gmail_read_email",
-                "description": "Read the content of a specific Gmail message by ID.",
+                "description": "Read the full body of a specific Gmail message by ID. Use gmail_list_recent_emails first to get IDs.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -119,13 +141,42 @@ class GmailConnector(BaseConnector):
         creds = await self.cred_manager.get(user_id, self.name, db)
         service = _build_service(creds)
 
+        if tool_name == "gmail_list_recent_emails":
+            count = min(int(args.get("count", 5)), 10)
+            list_result = service.users().messages().list(
+                userId="me", maxResults=count, labelIds=["INBOX"]
+            ).execute()
+            messages = list_result.get("messages", [])
+            emails = []
+            for msg in messages:
+                detail = service.users().messages().get(
+                    userId="me", id=msg["id"], format="metadata",
+                    metadataHeaders=["Subject", "From", "Date"],
+                ).execute()
+                headers = {h["name"]: h["value"] for h in detail.get("payload", {}).get("headers", [])}
+                snippet = detail.get("snippet", "")
+                emails.append({
+                    "id": msg["id"],
+                    "subject": headers.get("Subject", ""),
+                    "from": headers.get("From", ""),
+                    "date": headers.get("Date", ""),
+                    "snippet": snippet[:80] + "…" if len(snippet) > 80 else snippet,
+                })
+            return ToolResult(content={"emails": emails, "count": len(emails)})
+
         if tool_name == "gmail_read_email":
             msg_id = args["message_id"]
             detail = service.users().messages().get(
                 userId="me", id=msg_id, format="full"
             ).execute()
-            snippet = detail.get("snippet", "")
-            return ToolResult(content={"message_id": msg_id, "snippet": snippet})
+            body = _extract_body(detail.get("payload", {}))
+            headers = {h["name"]: h["value"] for h in detail.get("payload", {}).get("headers", [])}
+            return ToolResult(content={
+                "message_id": msg_id,
+                "subject": headers.get("Subject", ""),
+                "from": headers.get("From", ""),
+                "body": body or detail.get("snippet", ""),
+            })
 
         if tool_name == "gmail_send_email":
             import email.mime.text

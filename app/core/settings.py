@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     NOTION_OAUTH_CLIENT_ID: str = ""
     NOTION_OAUTH_CLIENT_SECRET: str = ""
 
+    # Todoist OAuth
+    TODOIST_CLIENT_ID: str = ""
+    TODOIST_CLIENT_SECRET: str = ""
+
+    # Slack OAuth
+    SLACK_CLIENT_ID: str = ""
+    SLACK_CLIENT_SECRET: str = ""
+
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

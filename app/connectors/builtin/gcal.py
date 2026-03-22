@@ -9,6 +9,24 @@ from app.connectors.base import BaseConnector, ContextBlock, ToolDefinition, Too
 from app.connectors.credentials import CredentialManager
 
 
+def _has_tz(dt_str: str) -> bool:
+    return dt_str.endswith("Z") or "+" in dt_str[10:] or (dt_str.count("-") > 2)
+
+
+def _dt_field(dt_str: str) -> dict:
+    """Return a Google Calendar dateTime field, adding timeZone=UTC for naive datetimes."""
+    if _has_tz(dt_str):
+        return {"dateTime": dt_str}
+    return {"dateTime": dt_str, "timeZone": "UTC"}
+
+
+def _dt_param(dt_str: str) -> str:
+    """Return a timezone-aware datetime string for use as a query param (timeMin/timeMax)."""
+    if _has_tz(dt_str):
+        return dt_str
+    return dt_str + "+00:00"
+
+
 def _build_service(creds_dict: dict):
     creds_obj = Credentials(
         token=creds_dict["access_token"],
@@ -121,8 +139,8 @@ class GCalConnector(BaseConnector):
         if tool_name == "gcal_create_event":
             body = {
                 "summary": args["summary"],
-                "start": {"dateTime": args["start_time"]},
-                "end": {"dateTime": args["end_time"]},
+                "start": _dt_field(args["start_time"]),
+                "end": _dt_field(args["end_time"]),
             }
             if args.get("description"):
                 body["description"] = args["description"]
@@ -135,9 +153,9 @@ class GCalConnector(BaseConnector):
             if "summary" in args:
                 existing["summary"] = args["summary"]
             if "start_time" in args:
-                existing["start"] = {"dateTime": args["start_time"]}
+                existing["start"] = _dt_field(args["start_time"])
             if "end_time" in args:
-                existing["end"] = {"dateTime": args["end_time"]}
+                existing["end"] = _dt_field(args["end_time"])
             result = service.events().update(
                 calendarId="primary", eventId=event_id, body=existing
             ).execute()
@@ -146,8 +164,8 @@ class GCalConnector(BaseConnector):
         if tool_name == "gcal_check_availability":
             events_result = service.events().list(
                 calendarId="primary",
-                timeMin=args["time_min"],
-                timeMax=args["time_max"],
+                timeMin=_dt_param(args["time_min"]),
+                timeMax=_dt_param(args["time_max"]),
                 singleEvents=True,
                 orderBy="startTime",
             ).execute()

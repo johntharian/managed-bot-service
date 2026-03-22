@@ -63,6 +63,19 @@ async def update_instruction(user_id: str, req: InstructionUpdate, db: AsyncSess
     await db.commit()
     return {"status": "success"}
 
+@router.delete("/{user_id}/instructions/{instruction_id}")
+async def delete_instruction(user_id: str, instruction_id: str, db: AsyncSession = Depends(get_db)):
+    stmt = select(BotInstruction).where(
+        BotInstruction.id == uuid.UUID(instruction_id),
+        BotInstruction.user_id == user_id,
+    )
+    inst = (await db.execute(stmt)).scalar_one_or_none()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Instruction not found")
+    await db.delete(inst)
+    await db.commit()
+    return {"status": "deleted"}
+
 
 # --- Approvals ---
 @router.get("/{user_id}/approvals")

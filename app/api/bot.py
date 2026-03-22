@@ -108,7 +108,17 @@ async def handle_bot_webhook(
                 user_id=user_id,
                 limit=2,
             )
-            last_two = history[-2:] if len(history) >= 2 else history
+            def _to_classifier_msg(m: dict) -> dict:
+                payload = m.get("content", {})
+                if isinstance(payload, str):
+                    try:
+                        payload = json.loads(payload)
+                    except Exception:
+                        payload = {}
+                text = payload.get("text", str(payload)) if isinstance(payload, dict) else str(payload)
+                role = "assistant" if str(m.get("sender_id", "")) == str(user_id) else "user"
+                return {"role": role, "content": text}
+            last_two = [_to_classifier_msg(m) for m in (history[-2:] if len(history) >= 2 else history)]
         except Exception:
             pass  # classifier still works without context
 

@@ -7,7 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.core.settings import settings
 from app.core.logger import logger
 
-from app.api import provision, bot, config, oauth
+from app.api import provision, bot, config, oauth, connectors
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -59,6 +59,7 @@ app.include_router(provision.router, prefix="/provision", tags=["provision"])
 app.include_router(bot.router, prefix="/bot", tags=["bot"])
 app.include_router(config.router, prefix="/config", tags=["config"])
 app.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
+app.include_router(connectors.router, prefix="/connectors/apikey", tags=["connectors"])
 
 @app.get("/health")
 def health_check() -> Any:

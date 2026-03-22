@@ -387,6 +387,6 @@ async def test_disconnect_unknown_service():
     app.dependency_overrides[get_db] = lambda: _mock_db_gen()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.delete("/user_123/integrations/slack")
+        response = await client.delete("/user_123/integrations/foobar")
 
     assert response.status_code == 404
