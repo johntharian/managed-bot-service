@@ -9,3 +9,6 @@ venv
 logs/
 
 .DS_Store
+
+.env
+.env.production
